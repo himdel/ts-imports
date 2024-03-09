@@ -15,39 +15,11 @@ const tsHost = ts.createCompilerHost(
   true,
 );
 
-function debug(o) {
-  const o2 = { ...o };
-  delete o2.attributes;
-  delete o2.end;
-  delete o2.flags;
-  delete o2.importClause;
-  delete o2.jsDoc;
-  delete o2.kind;
-  delete o2.localSymbol;
-  delete o2.modifierFlagsCache;
-  delete o2.modifiers;
-  delete o2.moduleSpecifier;
-  delete o2.namedBindings;
-  delete o2.parent;
-  delete o2.pos;
-  delete o2.symbol;
-  delete o2.transformFlags;
-  return o2;
-}
-
 function delintNode(node) {
   if (!ts.isImportDeclaration(node)) {
     ts.forEachChild(node, delintNode);
     return;
   }
-
-  console.log("");
-  console.log("");
-  console.log("node", debug(node));
-  console.log(".importClause", debug(node.importClause));
-  console.log("..namedBindings", debug(node.importClause?.namedBindings));
-  console.log(".moduleSpecifier", debug(node.moduleSpecifier));
-  console.log("");
 
   const named = node.importClause?.namedBindings?.elements || [];
   const name = node.importClause?.name?.escapedText;
@@ -64,10 +36,6 @@ function delintNode(node) {
   }
 
   named.forEach(({ name, propertyName, isTypeOnly }) => {
-    console.log("");
-    named.forEach((n, i) => console.log(`...elements[${i}]`, debug(n)));
-    console.log("");
-
     console.log(
       typeonly || isTypeOnly ? "import { type" : "import {",
       propertyName
