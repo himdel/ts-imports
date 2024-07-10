@@ -17,28 +17,55 @@ const tsHost = ts.createCompilerHost(
   true,
 );
 
+const poscache = { breaks: [], name: "" };
+
+function pos2line(pos) {
+  const { breaks, name } = poscache;
+  for (let i = 0; i < breaks.length; i++) {
+    // if first break = 5; pos = 2 should ret 1, pos = 6 should ret 2
+    if (pos < breaks[i]) {
+      return i + 1;
+    }
+  }
+  return breaks.length + 1;
+}
+
 function delintNode(node) {
   if (!ts.isImportDeclaration(node)) {
     ts.forEachChild(node, delintNode);
     return;
   }
 
-  const named = node.importClause?.namedBindings?.elements || [];
-  const name = node.importClause?.name?.escapedText;
-  const nname = node.importClause?.namedBindings?.name?.escapedText;
-  const from = node.moduleSpecifier.text;
-  const typeonly = node.importClause?.isTypeOnly;
+  const { importClause, moduleSpecifier, pos } = node;
+  const named = importClause?.namedBindings?.elements || [];
+  const name = importClause?.name?.escapedText;
+  const nname = importClause?.namedBindings?.name?.escapedText;
+  const from = moduleSpecifier.text;
+  const typeonly = importClause?.isTypeOnly;
 
   if (name) {
-    console.log(typeonly ? "import type" : "import", name, "from", `'${from}';`);
+    console.log(
+      `${poscache.name}:${pos2line(pos)}:`,
+      typeonly ? "import type" : "import",
+      name,
+      "from",
+      `'${from}';`,
+    );
   }
 
   if (nname) {
-    console.log("import * as", nname, "from", `'${from}';`);
+    console.log(
+      `${poscache.name}:${pos2line(pos)}:`,
+      "import * as",
+      nname,
+      "from",
+      `'${from}';`,
+    );
   }
 
-  named.forEach(({ name, propertyName, isTypeOnly }) => {
+  named.forEach(({ name, propertyName, isTypeOnly, pos }) => {
     console.log(
+      `${poscache.name}:${pos2line(pos)}:`,
       typeonly || isTypeOnly ? "import { type" : "import {",
       propertyName
         ? `${propertyName.escapedText} as ${name.escapedText}`
@@ -49,7 +76,7 @@ function delintNode(node) {
   });
 
   if (!name && !nname && !named.length) {
-    console.log("import", `'${from}';`);
+    console.log(`${poscache.name}:${pos2line(pos)}:`, "import", `'${from}';`);
   }
 }
 
@@ -66,7 +93,22 @@ function getImports(fileName) {
     throw ReferenceError(`Failed to find file ${fileName}`);
   }
 
+  poscache.name = fileName;
+  poscache.breaks = [...sourceFile.text.matchAll(/\n/g)].map(
+    ({ index }) => index,
+  );
   delintNode(sourceFile);
 }
 
-getImports(process.argv[2]);
+const [_node, _split, ...files] = process.argv;
+files.forEach((name) => {
+  if (files.length) {
+    console.log(`// ${name}:`);
+  }
+
+  try {
+    getImports(name);
+  } catch (e) {
+    console.error(e);
+  }
+});
